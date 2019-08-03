@@ -11,9 +11,9 @@ from Config import config
 class Invoice:
     """
     发票识别类
-    本次使用票小秘发票识别API，可以试用
-    官网 http://fapiao.glority.cn/
-    可以识别上传的各类发票信息，具体功能及配置请移步官网
+    使用百度发票识别API，免费使用
+    官方地址 https://ai.baidu.com/docs#/OCR-API/5099e085
+    其它功能及配置请移步官网
     """
 
     @staticmethod
