@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
+# Utils.py
 import base64
 import csv
-import hashlib
 import os
 import time
 import requests
+from Config import config
 
 
 class Invoice:
@@ -28,49 +29,44 @@ class Invoice:
     def parse_invoice(image_binary):
         """
         方法--识别图片
-        调用接口，返回识别后的发票数据
+        调用百度接口，返回识别后的发票数据
         以下内容基本根据API调用的要求所写，无需纠结
         各类报错码在官网文档可查
+        百度API注册及使用教程：http://ai.baidu.com/forum/topic/show/867951
         """
-        api_url = "http://fapiao.glority.cn/v1/item/get_item_info"
-        appkey = "5ca1b6b6"
-        appsecret = "2f194b2c74db7b00927aef58de7c1b61"
+        # 识别质量可选high及normal
+        # normal（默认配置）对应普通精度模型，识别速度较快，在四要素的准确率上和high模型保持一致，
+        # high对应高精度识别模型，相应的时延会增加，因为超时导致失败的情况也会增加（错误码282000）
+        access_token = "你的access_token"
+        api_url = f"https://aip.baidubce.com/rest/2.0/ocr/v1/vat_invoice?access_token={access_token}"
+        quality = "high"
+        header = {"Content-Type": "application/x-www-form-urlencoded"}
+        # 图像数据，base64编码后进行urlencode，要求base64编码和urlencode后大小不超过4M，
+        # 最短边至少15px，最长边最大4096px,支持jpg/jpeg/png/bmp格式
         image_data = base64.b64encode(image_binary)
-        timestamp = int(time.time())
-        m = hashlib.md5()
-        token = appkey + "+" + str(timestamp) + "+" + appsecret
-        m.update(token.encode('utf-8'))
-        token = m.hexdigest()
         try:
-            data = {'image_data': image_data, 'app_key': appkey, 'timestamp': str(timestamp), 'token': token}
-            r = requests.post(api_url, data=data)
-            if r.status_code != 200:
+            data = {"accuracy": quality, "image": image_data}
+            response = requests.post(api_url, data=data, headers=header)
+            if response.status_code != 200:
                 print(time.ctime()[:-5], "Failed to get info")
                 return None
             else:
-                result = r.json()
-                invoice_type = result['response']['data']['identify_results'][0]['type']
-                # "10100"和"10101"为均API的参数选项，代表只识别专票和普票，可以换成你想要识别的票据种类
-                if invoice_type == '10100' or invoice_type == '10101':
-                    invoice_data_raw = result['response']['data']['identify_results'][0]['details']
-                    invoice_data = {
-                        '检索日期': '-'.join(time.ctime().split()[1:3]),
-                        '发票代码': invoice_data_raw['code'],
-                        '发票号码': invoice_data_raw['number'],
-                        '开票日期': invoice_data_raw['date'],
-                        '合计金额': invoice_data_raw['pretax_amount'],
-                        '价税合计': invoice_data_raw['total'],
-                        '销售方名称': invoice_data_raw['seller'],
-                        '销售方税号': invoice_data_raw['seller_tax_id'],
-                        '购方名称': invoice_data_raw['buyer'],
-                        '购方税号': invoice_data_raw['buyer_tax_id']
-                    }
-                    return invoice_data
-                else:
-                    return None
+                result = response.json()["words_result"]
+                invoice_data = {
+                    '检索日期': '-'.join(time.ctime().split()[1:3]),
+                    '发票代码': result['InvoiceCode'],
+                    '发票号码': result['InvoiceNum'],
+                    '开票日期': result['InvoiceDate'],
+                    '合计金额': result['TotalAmount'],
+                    '价税合计': result['AmountInFiguers'],
+                    '销售方名称': result['SellerName'],
+                    '销售方税号': result['SellerRegisterNum'],
+                    '购方名称': result['PurchaserName'],
+                    '购方税号': result['PurchaserRegisterNum'],
+                    "发票类型": result["InvoiceType"]
+                }
+                return invoice_data
         except:
-            # 笔者在有试用次数的情况下出现过调用失败，问客服后得知流量不够了，得充钱
-            # 若不想使用Pushover，可以直接注释后pass，或者输出错误信息日志
             message = "发票识别API调用出现错误"
             Pushover.push_message(message)
             return None
@@ -167,8 +163,8 @@ class Pushover:
         message += ">>>来自Python发票校验"
         try:
             requests.post("https://api.pushover.net/1/messages.json", data={
-                "token": "acupz8oowmunebm7rmkacehei3cpp6",
-                "user": "u7aqhzhuzpfr2pqs2s7mcou8dyftse",
+                "token": "你的Token",
+                "user": "你的User",
                 "message": message
             })
         except Exception as e:

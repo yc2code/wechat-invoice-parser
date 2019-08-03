@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Wechat
+# Wechat.py
 import os
 from wxpy import *
 
