@@ -6,7 +6,6 @@ from Config import config
 from Wechat import *
 
 # Author  : 李达西
-# Email   : way2go.dash@gmail.com
 
 
 def main():
